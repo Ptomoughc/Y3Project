@@ -18,7 +18,7 @@ class TutorialPage1(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(20)
 
-        # 🔝 Top bar (Back button + Title)
+        # Top bar (Back button + Title)
         top_bar = QHBoxLayout()
 
         pixmap = QPixmap("images/backButton")
@@ -75,7 +75,7 @@ class TutorialPage1(QWidget):
 
         main_layout.addLayout(top_bar)
 
-        # 🧱 Bordered grid container
+        # Bordered grid container
         border_frame = QFrame()
         border_frame.setStyleSheet("""
             QFrame {
@@ -88,7 +88,7 @@ class TutorialPage1(QWidget):
         grid_layout.setContentsMargins(20, 20, 20, 20)
         grid_layout.setSpacing(20)
 
-        # 🖼️ 2x3 image slots
+        # 2x3 image slots
         self.image_slots = []
 
         for row in range(2):

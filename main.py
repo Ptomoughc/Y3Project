@@ -16,6 +16,7 @@ from PIL import Image
 from songs.musicController import music_player
 from dragNDrop import DragDropWindow
 from ML_Folder.gesture_ml import GestureRecognizer
+from settings import SettingsPage
 from webCam import WebcamWindow
 import sys
 import subprocess
@@ -34,7 +35,7 @@ class MainPlayerPage(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.settings_process = None
+        self.settings_page = None
         self.webcam_process = None
         self.drag_drop_window = None
         self.songs_folder = r"C:\Users\Thomas\Desktop\Year3 Coursework\songs"
@@ -59,14 +60,20 @@ class MainPlayerPage(QWidget):
         # Load and display playlist
         self.load_playlist()
 
-        self.gesture_recognizer = GestureRecognizer(self)
+        # Load the first song
+        self.load_first_song_paused()
+
+        # Initialize gesture recognizer with correct mapping function
+        self.settings_page = SettingsPage()
+        self.mappings = self.settings_page.get_gesture_mappings()
+        self.gesture_recognizer = GestureRecognizer(self, self.mappings)
         self.webcamWindow = None
     
     def is_process_running(self, process):
         return process is not None and process.poll() is None   
         
     def load_playlist(self):
-        """Load and display the playlist in the library"""
+        # Load and display the playlist in the library
         playlist = self.music_player.get_playlist()
         self.update_playlist_ui(playlist)
 
@@ -201,7 +208,7 @@ class MainPlayerPage(QWidget):
         left_line.setStyleSheet("background-color: #6A0DAD;")
         main_content_layout.addWidget(left_line)
 
-        # Create content area for the rest of your widgets
+        # Create content area for the rest of the widgets
         content_widget = QWidget()
         content_widget.setStyleSheet("background-color: transparent;")
         main_content_layout.addWidget(content_widget, 1)
@@ -284,7 +291,7 @@ class MainPlayerPage(QWidget):
         self.mediaImage.setIconSize(QSize(300, 300))
         self.mediaImage.setStyleSheet("background-color: transparent; border: none;")
 
-        # Media Title and Artist - WHITE TEXT, TRANSPARENT
+        # Media Title and Artist 
         self.mediaTitle = QLabel("Song Name")
         self.mediaTitle.setStyleSheet("color: white; font-size: 24px; font-weight: bold; background-color: transparent;")
         
@@ -308,7 +315,7 @@ class MainPlayerPage(QWidget):
         content_layout.addWidget(self.mediaTitle, alignment=Qt.AlignCenter)
         content_layout.addWidget(self.mediaArtist, alignment=Qt.AlignCenter)
 
-        # Middle container for all controls with border - LIGHTER SHADE OF BACKGROUND
+        # Middle container for all controls with border
         middle_container_widget = QWidget()
         middle_container_widget.setObjectName("middleContainer")
         middle_container_widget.setFixedHeight(200)
@@ -383,7 +390,7 @@ class MainPlayerPage(QWidget):
         self.skip = QPushButton("»")       # Skip symbol
         self.loop = QPushButton("↻")       # Loop symbol
 
-        # Style the control buttons - WHITE TEXT, TRANSPARENT
+        # Style the control buttons
         control_buttons_style = """
             QPushButton {
                 background-color: transparent;
@@ -409,10 +416,10 @@ class MainPlayerPage(QWidget):
         self.loop.setStyleSheet(self.inactive_style)
 
         # Create separate play and pause buttons
-        self.play_button = QPushButton("▶")       # Play symbol
-        self.pause_button = QPushButton("▐▐")     # Pause symbol - two vertical bars
+        self.play_button = QPushButton("▶")
+        self.pause_button = QPushButton("▐▐")
 
-        # Style the play button separately
+        # Style the play button
         self.play_button.setFixedSize(70, 40)
         self.play_button.setStyleSheet("""
             QPushButton {
@@ -430,7 +437,7 @@ class MainPlayerPage(QWidget):
             }
         """)
 
-        # Style the pause button separately (same style as play)
+        # Style the pause button
         self.pause_button.setFixedSize(70, 40)
         self.pause_button.setStyleSheet("""
             QPushButton {
@@ -459,9 +466,9 @@ class MainPlayerPage(QWidget):
         controls_section.addWidget(self.skip)
         controls_section.addWidget(self.loop)
 
-        # Volume section - CENTERED
+        # Volume section
         volume_section = QHBoxLayout()
-        volume_section.setSpacing(15)  # Increased spacing
+        volume_section.setSpacing(15)
         volume_section.setAlignment(Qt.AlignCenter)
         
         # Add left stretch to push content to center
@@ -517,14 +524,41 @@ class MainPlayerPage(QWidget):
         self.timer = QTimer()
         self.timer.setInterval(1000)
 
+    def load_first_song_paused(self):
+        # Load the first song in paused state on startup
+        playlist = self.music_player.get_playlist()
+
+        if not playlist:
+            return
+
+        # Load first song whithout playing it permanently
+        success, song_name = self.music_player.play_song(0)
+
+        if success:
+            # Immediately pause it
+            self.music_player.pause_song()
+
+            self.is_playing = False
+            self.was_paused = True
+            self.current_position = 0
+
+            # Show play button
+            self.pause_button.setVisible(False)
+            self.play_button.setVisible(True)
+
+            # Update UI properly
+            self.update_song_display()
+            self.status.setText("Ready")
+
+            # Ensure timer is stopped
+            self.timer.stop()
+
     def update_playlist_ui(self, playlist, added_files=None):
-        """
-        Update the sidebar song list without breaking layout
-        """
+        # Update the sidebar song list without breaking layout
 
         layout = self.scroll_layout
 
-        # 🔹 Remove ONLY song buttons (keep label + spacer)
+        # Remove only the song buttons and keep label and spacer
         for i in reversed(range(layout.count())):
             item = layout.itemAt(i)
 
@@ -536,7 +570,7 @@ class MainPlayerPage(QWidget):
             if isinstance(widget, QPushButton):
                 widget.deleteLater()
 
-        # 🔹 Re-add songs BEFORE the spacer
+        # Re-add songs BEFORE the spacer
         for i, song in enumerate(playlist):
             song_name = song.replace(".mp3", "")
 
@@ -562,7 +596,7 @@ class MainPlayerPage(QWidget):
                 lambda checked, idx=i: self.play_specific_song(idx)
             )
 
-            # 🔹 Insert ABOVE spacer
+            # Insert ABOVE spacer
             layout.insertWidget(layout.count() - 1, song_btn)
 
         self.track_count.setText(f"{len(playlist)} Tracks")
@@ -628,7 +662,7 @@ class MainPlayerPage(QWidget):
             self.status.setText("shuffle: OFF")
 
     def toggle_webcam_page(self):
-        # If webcam window already open → close it
+        # If webcam window already open then close it
         if self.webcamWindow is not None and self.webcamWindow.isVisible():
             self.webcamWindow.close()
             self.webcamWindow = None
@@ -663,7 +697,7 @@ class MainPlayerPage(QWidget):
         self.volume_bar.valueChanged.connect(self.update_volume_display)
 
     def update_album_art(self):
-        """Update the album art display with the current song's artwork"""
+        # Update the album art display with the current song's artwork
         album_art_path = self.music_player.current_album_art
         
         try:
@@ -695,7 +729,7 @@ class MainPlayerPage(QWidget):
             self.mediaImage.setIconSize(QSize(300, 300))
 
     def play_specific_song(self, song_index):
-        """Play a specific song from the playlist"""
+        # Play a specific song from the playlist
         success, song_name = self.music_player.play_song(song_index)
         if success:
             self.is_playing = True
@@ -710,7 +744,7 @@ class MainPlayerPage(QWidget):
             self.status.setText("Error playing song")
 
     def update_song_display(self):
-        """Update all song-related displays"""
+        # Update all song-related displays
 
         # If no song has been played yet, show prompt
         if not self.music_player.is_playing and not self.music_player.was_paused:
@@ -742,40 +776,32 @@ class MainPlayerPage(QWidget):
         self.update_time_display()
     
     def refresh_playlist(self, added_files=None):
-        """Refresh playlist after adding new songs"""
+        # Refresh playlist after adding new songs
         self.music_player.load_playlist()
         playlist = self.music_player.get_playlist()
         self.update_playlist_ui(playlist, added_files)
 
     def on_volume_bar_clicked(self, value):
-        """Handle when volume bar is clicked directly"""
+        # Handle when volume bar is clicked directly
         if self.muted == 1:
             self.unmute_with_volume(value)
 
     def on_volume_changed(self, value):
-        """Handle when volume is changed via dragging or other methods"""
+        # Handle when volume is changed via dragging or other methods
         if self.muted == 1 and value > 0:
             self.unmute_with_volume(value)
 
     def unmute_with_volume(self, volume):
-        """Unmute and set to specified volume"""
+        # Unmute and set to specified volume
         self.muted = 0
-        self.volume_icon.setText("♪")  # Unmuted volume symbol
+        self.volume_icon.setText("♪") 
         self.saved_volume = volume
 
     def close_settings_page(self):
-        if self.is_process_running(self.settings_process):
-            try:
-                self.settings_process.terminate()
-                self.settings_process.wait(1000)
-            except:
-                try:
-                    self.settings_process.kill()
-                except:
-                    pass
-
-        self.settings_process = None
-        print("Settings page closed")
+        if self.settings_page:
+            self.settings_page.close()
+            self.settings_page = None
+            print("Settings page closed")
     
     def close_webcam_page(self):
         if self.webcamWindow is not None:
@@ -799,7 +825,7 @@ class MainPlayerPage(QWidget):
         try:
             self.drag_drop_window = DragDropWindow(
                 self.songs_folder,
-                on_files_added=self.refresh_playlist  # pass callback
+                on_files_added=self.refresh_playlist
             )
             self.drag_drop_window.show()
             print("Drag-and-drop window opened")
@@ -807,57 +833,54 @@ class MainPlayerPage(QWidget):
             print(f"Error opening drag-and-drop window: {e}")
 
     def toggle_settings_page(self):
-        # If webcam window already open → close it
-        if self.is_process_running(self.settings_process):
+
+        # Close if already open
+        if self.settings_page and self.settings_page.isVisible():
             self.close_settings_page()
-            print("Settings page closed")
             return
 
-        # Otherwise open webcam window
         self.open_settings_page()
-        print("Settings page opened")
 
     def open_settings_page(self):
-        # Close any existing settings page first
-        self.close_settings_page()
-        
-        try:
-            self.settings_process = subprocess.Popen([sys.executable, "settings.py"])
-            print("Settings page opened")
-        except Exception as e:
-            print(f"Error opening settings.py: {e}")
+        if self.settings_page is None:
+            self.settings_page = SettingsPage(None)
+            self.settings_page.setWindowFlag(Qt.Window, True)
+
+        self.settings_page.show()
+        self.settings_page.raise_()
+        self.settings_page.activateWindow()
 
     def rewind_func(self):
         now = time.monotonic()
 
-        # 🔹 If less than 5 seconds into song → always go to previous
+        # If less than 5 seconds into song then always go to previous
         if self.current_position < 5:
             self.last_rewind_click = 0
             
             # Go to previous track
             self.play_previous_song()
             
-            # 🔸 Sync UI just like play_next_song()
+            # Sync UI just like play_next_song()
             self.current_position = 0
             self.progress_bar.setValue(0)
             self.update_song_display()
             
             return
 
-        # 🔹 Double click → previous song
+        # Double click, previous song
         if now - self.last_rewind_click <= self.REWIND_DOUBLE_CLICK_THRESHOLD:
             self.last_rewind_click = 0
             
             self.play_previous_song()
             
-            # 🔸 Sync UI
+            # Sync UI
             self.current_position = 0
             self.progress_bar.setValue(0)
             self.update_song_display()
             
             return
 
-        # 🔹 Otherwise → single click (restart current song)
+        # Otherwise, single click (restart current song)
         self.last_rewind_click = now
 
         if self.current_position > 0:
@@ -871,11 +894,11 @@ class MainPlayerPage(QWidget):
             self.saved_volume = self.volume_bar.value()
             self.volume_bar.setValue(0)
             self.muted = 1
-            self.volume_icon.setText("⊘")  # Muted volume symbol
+            self.volume_icon.setText("⊘")
         else:
             self.volume_bar.setValue(self.saved_volume)
             self.muted = 0
-            self.volume_icon.setText("♪")  # Unmuted volume symbol
+            self.volume_icon.setText("♪")
 
     def update_time_display(self):
         minutes = self.current_position // 60
@@ -889,7 +912,7 @@ class MainPlayerPage(QWidget):
         if not self.is_playing:
             return
 
-        # DO NOT advance time if user is dragging
+        # DO NOT change time if user is dragging
         if self.progress_bar.isSliderDown():
             return
 
@@ -909,14 +932,12 @@ class MainPlayerPage(QWidget):
             self.pause_playback()
 
     def start_playback(self):
-        """Start or resume music"""
-
-
+        # Start or resume music
         # incase the fist gesture is already detected
         if self.is_playing:
             return
 
-        # 🔹 Resume from pause
+        # Resume from pause
         if self.was_paused:
             self.music_player.unpause_song()
             self.was_paused = False
@@ -928,7 +949,7 @@ class MainPlayerPage(QWidget):
             self.status.setText("Playing")
             return
 
-        # 🔹 Otherwise start from beginning
+        # Otherwise start from beginning
         success, song_name = self.music_player.play_song()
         if success:
             self.is_playing = True
@@ -942,7 +963,7 @@ class MainPlayerPage(QWidget):
             self.status.setText("Error playing music")
 
     def pause_playback(self):
-        """Pause the music"""
+        # Pause the music
         self.music_player.pause_song()
         self.was_paused = True
         self.pause_position = self.current_position
@@ -954,7 +975,7 @@ class MainPlayerPage(QWidget):
         self.status.setText("Paused")
 
     def stop_playback(self):
-        """Stop the music"""
+        # Stop the music
         self.music_player.stop_song()
         self.is_playing = False
         # Show play button, hide pause button
@@ -969,7 +990,7 @@ class MainPlayerPage(QWidget):
         self.status.setText("Stopped")
 
     def play_next_song(self):
-        """Play the next song in playlist"""
+        # Play the next song in playlist
         self.was_paused = False
         if self.loop_check:
             success, song_name = self.music_player.loop_song()
@@ -984,7 +1005,6 @@ class MainPlayerPage(QWidget):
             # Update song info and album art
             self.update_song_display()
             self.status.setText(f"Playing: {song_name}")
-            print("Song length reported:", self.music_player.current_song_length)
         else:
             self.stop_playback()
 
@@ -1008,18 +1028,17 @@ class MainPlayerPage(QWidget):
         self.update_time_display()
 
     def update_volume_display(self):
-        """Update volume based on slider"""
+        # Update volume based on slider
         volume = self.volume_bar.value()
 
         if volume == 0:
-            self.volume_icon.setText("⊘")  # Muted volume symbol
+            self.volume_icon.setText("⊘")
         else:
             self.volume_icon.setText("♪")
 
         self.music_player.set_volume(volume)
     
     def closeEvent(self, event):
-        print("IM BEING CALLED")
         self.close_settings_page()
         self.close_webcam_page()
         self.stop_playback()

@@ -10,9 +10,8 @@ MODEL_FILE = "ML_Folder/gesture_model.pkl"
 # Load dataset
 data = pd.read_csv(DATA_FILE)
 
-# ---------------------------
-# Sanity check label set
-# ---------------------------
+
+# Check label set
 expected_labels = {
     "left_fist", "left_open", "left_pinky", "left_thumb", "left_volume",
     "right_fist", "right_open", "right_pinky", "right_thumb", "right_volume"
@@ -26,13 +25,12 @@ missing = expected_labels - found_labels
 extra = found_labels - expected_labels
 
 if missing:
-    print("⚠️ Missing labels:", missing)
+    print("Missing labels:", missing)
 if extra:
-    print("⚠️ Unexpected labels:", extra)
+    print("Unexpected labels:", extra)
 
-# ---------------------------
+
 # Features and labels
-# ---------------------------
 X = data.drop(columns=["label"])
 y = data["label"]
 
@@ -40,9 +38,8 @@ y = data["label"]
 print("\nSamples per class:")
 print(y.value_counts())
 
-# ---------------------------
+
 # Train / test split
-# ---------------------------
 X_train, X_test, y_train, y_test = train_test_split(
     X, y,
     test_size=0.30,
@@ -50,9 +47,8 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-# ---------------------------
+
 # Model
-# ---------------------------
 model = RandomForestClassifier(
     n_estimators=200,
     random_state=42
@@ -61,19 +57,17 @@ model = RandomForestClassifier(
 # Train
 model.fit(X_train, y_train)
 
-# ---------------------------
+
 # Evaluate
-# ---------------------------
 y_pred = model.predict(X_test)
 
-print("\n=== Test Accuracy ===")
+print("\nTest Accuracy")
 print(accuracy_score(y_test, y_pred))
 
-print("\n=== Classification Report ===")
+print("\nClassification Report")
 print(classification_report(y_test, y_pred, zero_division=0))
 
-# ---------------------------
+
 # Save model
-# ---------------------------
 joblib.dump(model, MODEL_FILE)
-print(f"\n✅ Model saved to: {MODEL_FILE}")
+print(f"\nModel saved to: {MODEL_FILE}")

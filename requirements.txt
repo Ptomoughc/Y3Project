@@ -1,0 +1,21 @@
+
+# Project Dependencies
+
+# Core 
+numpy
+pandas
+
+# Computer Vision
+opencv-python
+mediapipe
+
+# Music Control
+pygame
+mutagen
+
+# Machine Learning
+scikit-learn
+joblib
+
+# GUI 
+PyQt5

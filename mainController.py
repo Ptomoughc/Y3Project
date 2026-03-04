@@ -29,16 +29,14 @@ class MainController(QStackedWidget):
         self.main_player_page = MainPlayerPage(self)
         
         # Add pages to stacked widget
-        # Place main player at the end when youre done
         self.addWidget(self.front_page)
         self.addWidget(self.tutorial_page1)
         self.addWidget(self.tutorial_page2)
         self.addWidget(self.main_player_page)
 
     def closeEvent(self, event):
-        """Override close event to close settings page when main window closes"""
+        # Override close event to close settings page when main window closes
         # Close settings page if it's open from the main player
-        print("MAIN WINDOW closeEvent called")
         if hasattr(self.main_player_page, 'close_settings_page'):
             self.main_player_page.close_settings_page()
             self.main_player_page.close_webcam_page()

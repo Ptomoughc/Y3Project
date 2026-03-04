@@ -61,7 +61,6 @@ class DragDropWindow(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    # Change this to your songs folder
     songs_folder = r"C:\Users\Thomas\Desktop\Year3 Coursework\songs"
 
     window = DragDropWindow(songs_folder)

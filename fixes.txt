@@ -6,6 +6,10 @@ fix the progress bar because that is broken
 when you rewind on the first song, it breaks
 
 
+need to make sure the dictionary is carrie dover
+
+
+
 clicking settings again opens settings when its open
 
 ### NOTES

@@ -6,16 +6,20 @@ import joblib
 import os
 import time
 
+
 class GestureRecognizer:
-    def __init__(self, main_page):
-        # Hook to main page
+    def __init__(self, main_page, gesture_mappings):
         self.main_page = main_page
-        self.last_gesture = None  
+        self.last_gesture = None
         self.current_candidate = None
         self.candidate_start_time = None
         self.confirmation_time = 0.5
 
-        # MediaPipe hand detection setup
+        # Gesture to action dictionary (excludes volume as we do not want that to be changed)
+        self.gesture_mappings = gesture_mappings or {}
+
+        print(self.gesture_mappings)
+
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
@@ -25,19 +29,21 @@ class GestureRecognizer:
         )
         self.mp_draw = mp.solutions.drawing_utils
 
-        # Load trained gesture model
         model_path = "ML_Folder/gesture_model.pkl"
         if os.path.exists(model_path):
             self.model = joblib.load(model_path)
         else:
             self.model = None
-            print("No trained model found — running in landmark detection mode only.")
+            print("No trained model found.")
 
-        # Column names used for the model
         self.columns = [f"{axis}{i}" for i in range(21) for axis in ["x", "y", "z"]]
+        self.max_volume_dist = None
 
-        # For volume gesture
-        self.max_volume_dist = None  # auto-calibrated max distance for 100% volume
+    def update_gesture_mappings(self, new_mappings):
+        self.gesture_mappings = {
+            k.strip().lower(): v.strip().lower()
+            for k, v in new_mappings.items()
+        }
 
     def process_frame(self, frame):
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -47,10 +53,11 @@ class GestureRecognizer:
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Draw landmarks
-                self.mp_draw.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
 
-                # Extract landmarks
+                self.mp_draw.draw_landmarks(
+                    frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS
+                )
+
                 landmark_vector = []
                 wrist = hand_landmarks.landmark[0]
 
@@ -63,14 +70,13 @@ class GestureRecognizer:
 
                 landmark_vector = np.array(landmark_vector)
 
-                # Predict gesture if model loaded
                 if self.model:
                     df = pd.DataFrame([landmark_vector], columns=self.columns)
                     gesture_full_label = self.model.predict(df)[0]
                 else:
                     gesture_full_label = "hand_detected"
 
-                # Map dataset labels to actions
+                # Group features up
                 if gesture_full_label in ["left_fist", "right_fist"]:
                     gesture_label = "fist"
                 elif gesture_full_label in ["left_open", "right_open"]:
@@ -95,50 +101,61 @@ class GestureRecognizer:
                     self.candidate_start_time = None
                     return frame, None
 
-                # If new candidate gesture detected
+                # New possible gesture
                 if gesture_label != self.current_candidate:
                     self.current_candidate = gesture_label
                     self.candidate_start_time = now
                     return frame, None
 
-                # If same gesture continues
+                # Confirm gesture
                 elapsed = now - self.candidate_start_time
 
                 if elapsed >= self.confirmation_time:
-                    # Only trigger if different from last confirmed gesture
                     if gesture_label != self.last_gesture:
-                        print(f"Detected (confirmed): {gesture_label}")
 
-                        # ---------------- Actions ----------------
-                        if gesture_label == "fist":
-                            self.main_page.start_playback()
-                        elif gesture_label == "open":
-                            self.main_page.pause_playback()
-                        elif gesture_label == "thumb_left":
-                            print("→ Loop toggled")
-                            self.main_page.loop_value_changer()
-                        elif gesture_label == "thumb_right":
-                            print("→ Rewind / Previous triggered")
-                            self.main_page.rewind_func()
-                        elif gesture_label == "pinky_left":
-                            print("→ Shuffle toggled")
-                            self.main_page.shuffle_value_changer()
-                        elif gesture_label == "pinky_right":
-                            print("→ Next track triggered")
-                            self.main_page.play_next_song()
-                        elif gesture_label == "volume":
-                            print("→ Volume control active")
+                        print(f"\nDetected (confirmed): {gesture_label}")
 
-                        # Mark as last confirmed
+                        # Volume checker
+                        if gesture_label == "volume":
+                            print("Volume mode activated")
+                            self.last_gesture = "volume"
+                            self.max_volume_dist = None
+                            break
+
+                        # All other gestures in dictionary
+                        action = self.gesture_mappings.get(gesture_label)
+
+                        if action:
+                            print(f"Instruction to execute: {action}")
+
+                            if action == "play":
+                                self.main_page.start_playback()
+
+                            elif action == "pause":
+                                self.main_page.pause_playback()
+
+                            elif action == "loop":
+                                self.main_page.loop_value_changer()
+
+                            elif action == "rewind":
+                                self.main_page.rewind_func()
+
+                            elif action == "shuffle":
+                                self.main_page.shuffle_value_changer()
+
+                            elif action == "skip":
+                                self.main_page.play_next_song()
+
+                        else:
+                            print("No instruction mapped to this gesture.")
+
                         self.last_gesture = gesture_label
 
         else:
-            # No hand detected
             if self.last_gesture:
                 print("Lost hand")
                 self.last_gesture = None
 
-        # ---------------- Draw volume line and set volume if active ----------------
         if self.last_gesture == "volume" and results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 h, w, _ = frame.shape
@@ -148,35 +165,36 @@ class GestureRecognizer:
                 x1, y1 = int(thumb_tip.x * w), int(thumb_tip.y * h)
                 x2, y2 = int(index_tip.x * w), int(index_tip.y * h)
 
-                # Euclidean distance
                 dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-                # Auto-calibrate max distance if first time
                 if self.max_volume_dist is None:
-                    self.max_volume_dist = dist if dist > 20 else 200  # fallback if too small
+                    self.max_volume_dist = dist if dist > 20 else 200
 
-                # Map distance to 0-100%
-                if dist <= self.max_volume_dist * 0.1:  # 10% threshold
-                    volume_percent = 0
-                else:
-                    # Scale 11%-110% → 1-100%
-                    scaled = (dist / self.max_volume_dist) * 100
-                    scaled = min(scaled, 110)  # cap at 110
-                    volume_percent = int(np.clip(scaled - 10, 1, 100))  # shift down by 10
+                scaled = min((dist / self.max_volume_dist) * 100, 110)
+                volume_percent = int(np.clip(scaled - 10, 0, 100))
 
-                # Update volume in main page
                 self.main_page.volume_bar.setValue(volume_percent)
 
-                # Draw line from thumb tip to index fingertip
-                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 4)
+                # Draw circles on fingertips
+                cv2.circle(frame, (x1, y1), 5, (255, 0, 255), cv2.FILLED)
+                cv2.circle(frame, (x2, y2), 5, (255, 0, 255), cv2.FILLED)
 
-                # Draw circle at thumb tip and index fingertip
-                cv2.circle(frame, (x1, y1), 6, (0, 255, 0), -1)
-                cv2.circle(frame, (x2, y2), 6, (0, 255, 0), -1)
+                # Draw line between fingers
+                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
-                # Midpoint above line for text
-                mid_x, mid_y = (x1 + x2) // 2, (y1 + y2) // 2 - 15
-                cv2.putText(frame, f"{volume_percent}% volume", (mid_x, mid_y),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+                # Center point
+                cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                cv2.circle(frame, (cx, cy), 0, (0, 255, 255), cv2.FILLED)
+
+                # Display volume percentage above hand
+                cv2.putText(
+                    frame,
+                    f'{volume_percent} %',
+                    (cx - 40, cy - 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 255, 0),
+                    3
+                )
 
         return frame, gesture_label

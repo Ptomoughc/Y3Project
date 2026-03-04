@@ -34,17 +34,6 @@ class FrontPage(QWidget):
             }
         """)
 
-        subtitle_label = QLabel("Gesture-Controlled Media Player")
-        subtitle_label.setAlignment(Qt.AlignCenter)
-        subtitle_label.setStyleSheet("""
-            QLabel {
-                font-size: 18px;
-                color: #b8b8b8;
-                padding: 10px;
-                font-weight: normal;
-                margin-bottom: 40px;
-            }
-        """)
 
         # Play Button Section
         play_button = QPushButton("▶")
@@ -74,18 +63,6 @@ class FrontPage(QWidget):
         play_button.setFixedSize(110, 110)
         play_button.setContentsMargins(10, 0, 0, 0)
 
-        play_label = QLabel("Start Playing")
-        play_label.setAlignment(Qt.AlignCenter)
-        play_label.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                color: #b8b8b8;
-                font-weight: medium;
-                padding: 5px;
-                margin-top: 15px;
-            }
-        """)
-
         # Tutorial Button Section
         tutorial_button = QPushButton("TUTORIAL")
         tutorial_button.setFixedSize(220, 65)
@@ -111,28 +88,13 @@ class FrontPage(QWidget):
             }
         """)
 
-        # Footer Section
-        footer_label = QLabel("Control your media with intuitive hand gestures")
-        footer_label.setAlignment(Qt.AlignCenter)
-        footer_label.setStyleSheet("""
-            QLabel {
-                font-size: 14px;
-                color: #888;
-                font-style: italic;
-                padding: 10px;
-                margin-top: 20px;
-            }
-        """)
 
         # Add widgets to main layout
         main_layout.addWidget(title_label, alignment=Qt.AlignCenter)
-        main_layout.addWidget(subtitle_label, alignment=Qt.AlignCenter)
         main_layout.addStretch(1)
         main_layout.addWidget(play_button, alignment=Qt.AlignCenter)
-        main_layout.addWidget(play_label, alignment=Qt.AlignCenter)
         main_layout.addStretch(1)
         main_layout.addWidget(tutorial_button, alignment=Qt.AlignCenter)
-        main_layout.addWidget(footer_label, alignment=Qt.AlignCenter)
 
         # Connect signals
         play_button.clicked.connect(self.open_main_page)

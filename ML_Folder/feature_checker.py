@@ -8,6 +8,6 @@ data = pd.read_csv(DATA_FILE)
 # Get unique labels
 unique_labels = sorted(data["label"].unique())
 
-print("✅ Unique gesture labels:")
+print("Unique gesture labels:")
 for label in unique_labels:
     print(label)

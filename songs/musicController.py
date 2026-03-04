@@ -25,10 +25,9 @@ class MusicPlayer:
         # --- Shuffle additions ---
         self.shuffle_enabled = False
         self.shuffle_history = []  # stores played song indices in order
-        # -------------------------
 
     def load_playlist(self):
-        """Load all MP3 files from the music directory (relative to this file)"""
+        # Load all MP3 files from the music directory
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
 
         self.playlist = [
@@ -47,10 +46,8 @@ class MusicPlayer:
             return int(self.paused_at / 1000)
         return 0
 
-    # ---------------- SHUFFLE CONTROL ----------------
-
     def toggle_shuffle(self):
-        """Enable / Disable shuffle"""
+        # Enable / Disable shuffle
         self.shuffle_enabled = not self.shuffle_enabled
 
         # When turning shuffle on, start history with current song
@@ -60,7 +57,7 @@ class MusicPlayer:
         return self.shuffle_enabled
 
     def shuffle_forward(self):
-        """Get next shuffled song (new random, history-aware)"""
+        # Get next shuffled song
         if not self.playlist:
             return False, "No songs"
 
@@ -78,7 +75,7 @@ class MusicPlayer:
         return self.play_song()
 
     def shuffle_backward(self):
-        """Go back to previously shuffled song"""
+        # Go back to previously shuffled song
         if not self.shuffle_history:
             return self.play_song()
 
@@ -88,12 +85,10 @@ class MusicPlayer:
             # Previous becomes current
             self.current_song_index = self.shuffle_history[-1]
         else:
-            # Only one in history → restart current
+            # Only one in history then restart current
             self.current_song_index = self.shuffle_history[0]
 
         return self.play_song()
-
-    # ------------------------------------------------
 
     def extract_album_art(self, file_path):
         try:
@@ -142,7 +137,7 @@ class MusicPlayer:
         if not self.playlist:
             return False, "No songs in playlist"
 
-        # If UI manually selected a song → reset shuffle history
+        # If UI manually selected a song then reset shuffle history
         if song_index is not None:
             self.current_song_index = song_index
             if self.shuffle_enabled:
@@ -193,8 +188,6 @@ class MusicPlayer:
         self.paused_at = 0
         self.was_paused = False
 
-    # --- Normal non-shuffle next/previous ---
-
     def next_song(self):
         self.current_song_index = (self.current_song_index + 1) % len(self.playlist)
         return self.play_song()
@@ -202,8 +195,6 @@ class MusicPlayer:
     def previous_song(self):
         self.current_song_index = (self.current_song_index - 1) % len(self.playlist)
         return self.play_song()
-
-    # ----------------------------------------
 
     def loop_song(self):
         return self.play_song()
