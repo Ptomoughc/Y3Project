@@ -12,6 +12,7 @@ mediapipe
 # Music Control
 pygame
 mutagen
+PIL
 
 # Machine Learning
 scikit-learn

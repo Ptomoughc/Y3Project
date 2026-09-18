@@ -1,4 +1,3 @@
-import sys
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout,
@@ -8,7 +7,7 @@ from PyQt5.QtGui import QPixmap, QTransform, QIcon
 from PyQt5.QtCore import Qt, QSize
 
 
-class TutorialPage1(QWidget):
+class TutorialPage4(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
@@ -22,14 +21,8 @@ class TutorialPage1(QWidget):
         # Top bar
         top_bar = QHBoxLayout()
 
-        pixmap = QPixmap("images/backButton.png")
-        rotated = pixmap.transformed(
-            QTransform().rotate(180),
-            Qt.SmoothTransformation
-        )
-
         back_button = QPushButton()
-        back_button.setIcon(QIcon("images/home.png"))
+        back_button.setIcon(QIcon("images/backButton.png"))
         back_button.setIconSize(QSize(30, 30))
         back_button.setFixedSize(100, 50)
         back_button.clicked.connect(self.go_back)
@@ -43,7 +36,7 @@ class TutorialPage1(QWidget):
             }
         """)
 
-        title_label = QLabel("Quick Start")
+        title_label = QLabel("Gesture Guide")
         title_label.setStyleSheet("""
             QLabel {
                 font-size: 36px;
@@ -54,7 +47,7 @@ class TutorialPage1(QWidget):
         title_label.setAlignment(Qt.AlignCenter)
 
         next_button = QPushButton()
-        next_button.setIcon(QIcon(rotated))
+        next_button.setIcon(QIcon("images/home.png"))
         next_button.setIconSize(QSize(30, 30))
         next_button.setFixedSize(100, 50)
         next_button.clicked.connect(self.go_forwards)
@@ -73,10 +66,9 @@ class TutorialPage1(QWidget):
         top_bar.addWidget(title_label)
         top_bar.addStretch()
         top_bar.addWidget(next_button)
-
         main_layout.addLayout(top_bar)
 
-        # Grid container 
+        # Grid container
         border_frame = QFrame()
         border_frame.setStyleSheet("""
             QFrame {
@@ -90,11 +82,28 @@ class TutorialPage1(QWidget):
         grid_layout.setContentsMargins(25, 25, 25, 25)
         grid_layout.setSpacing(25)
 
-        # Data
-        self.images = ["images/mainSS.png", "images/b1.jpg", "images/b2.jpg", "images/b3.jpg", "images/drag.png", "images/cam.jpg"] 
-        self.captions = ["Press the Play button", "Buttons part 1", "Buttons part 2", "Buttons part 3", "DragNDrop screen - Drag MP3 files into this window", "Webcam screen - Toggling Hand lines"]
+        # Images and captions
+        self.images = [
+            "images/LP.png",  # Large Pinch
+            "images/SP.png",  # Small Pinch
+            "images/P.png",   # Pinkie
+            "images/T.png",   # Thumb
+            "images/H.png",   # Open Hand
+            "images/F.png"    # Fist
+        ]
 
-        # Grid (2x3) with Image + Caption
+        self.captions = [
+            "Large Pinch",
+            "Small Pinch",
+            "Pinkie",
+            "Thumb",
+            "Open Hand",
+            "Fist"
+        ]
+
+        self.image_slots = []
+
+        # 2x3 Grid
         for row in range(2):
             for col in range(3):
                 index = row * 3 + col
@@ -116,17 +125,11 @@ class TutorialPage1(QWidget):
                 card_layout.setContentsMargins(20, 20, 20, 20)
                 card_layout.setSpacing(12)
 
-                # Image container
+                # Image
                 image_label = QLabel()
                 image_label.setAlignment(Qt.AlignCenter)
                 image_label.setMinimumSize(280, 180)
                 image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                image_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #1e1e1e;
-                        border-radius: 8px;
-                    }
-                """)
 
                 pixmap = QPixmap(self.images[index])
                 if not pixmap.isNull():
@@ -137,7 +140,7 @@ class TutorialPage1(QWidget):
                     )
                     image_label.setPixmap(scaled_pixmap)
 
-                    # Override resize event for scaling
+                    # Resize handler to keep image scaled
                     def create_resize_handler(label, original_pixmap):
                         def resize_event(event):
                             if not original_pixmap.isNull():
@@ -170,13 +173,12 @@ class TutorialPage1(QWidget):
                     }
                 """)
 
-                # Wrap caption in a vertical layout to center it
                 caption_wrapper = QVBoxLayout()
                 caption_wrapper.addWidget(caption_label)
                 caption_wrapper.setContentsMargins(0, 0, 0, 0)
                 caption_wrapper.setAlignment(Qt.AlignVCenter)
 
-                # Add image and caption to card
+                # Add to card
                 card_layout.addWidget(image_label, stretch=1)
                 card_layout.addLayout(caption_wrapper)
 
@@ -185,7 +187,9 @@ class TutorialPage1(QWidget):
                 grid_layout.setRowStretch(row, 1)
                 grid_layout.setColumnStretch(col, 1)
 
-        # Make all rows/columns stretch evenly
+                self.image_slots.append((image_label, caption_label))
+
+        # Stretch rows and columns equally
         for i in range(3):
             grid_layout.setColumnStretch(i, 1)
         for i in range(2):
@@ -195,7 +199,7 @@ class TutorialPage1(QWidget):
 
     # Navigation
     def go_back(self):
-        self.controller.setCurrentIndex(0)
+        self.controller.setCurrentIndex(3)
 
     def go_forwards(self):
-        self.controller.setCurrentIndex(2)
+        self.controller.setCurrentIndex(0)

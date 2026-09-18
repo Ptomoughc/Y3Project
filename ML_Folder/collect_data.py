@@ -15,7 +15,7 @@ mp_draw = mp.solutions.drawing_utils
 
 DATA_FILE = "ML_Folder/gesture_data.csv"
 
-# ---- Counters ----
+# Counters
 counts = {
     "fist_left":0, "fist_right":0,
     "open_left":0, "open_right":0,
@@ -61,7 +61,7 @@ while True:
 
             mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            hand_label = handedness.classification[0].label.lower()  # "left" or "right"
+            hand_label = handedness.classification[0].label.lower()  # get left or right label
 
             wrist = hand_landmarks.landmark[0]
 
@@ -84,7 +84,7 @@ while True:
             elif key == ord('f'):
                 label = f"fist_{hand_label}"
             elif key == ord('t'):
-                label = f"thumb_{hand_label}"  # standardized: gesture_hand
+                label = f"thumb_{hand_label}"
             elif key == ord('p'):
                 label = f"pinky_{hand_label}"
             elif key == ord('v'):

@@ -1,33 +1,37 @@
-import warnings
 import os
 import sys
-import subprocess
+import warnings
 import time
-from PyQt5.QtWidgets import QSpacerItem, QSizePolicy, QStyle, QStyleOptionSlider
 
-# Suppress warnings and pygame startup message
-warnings.filterwarnings("ignore", category=UserWarning, module="pkgdata")
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+# Suppress TensorFlow, MediaPipe, and PyGame logs/warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'   # TensorFlow
+os.environ['GLOG_minloglevel'] = '3'      # MediaPipe/C++ logs
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'  # Hide PyGame startup message
 
-from PyQt5.QtWidgets import QWidget, QPushButton, QSlider, QLabel, QHBoxLayout, QVBoxLayout, QFrame, QLineEdit, QScrollArea, QApplication
-from PyQt5.QtGui import QIcon, QMouseEvent
+# PyQt5 imports
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QPushButton, QSlider, QLabel, QHBoxLayout, QVBoxLayout,
+    QFrame, QLineEdit, QScrollArea, QSpacerItem, QSizePolicy
+)
 from PyQt5.QtCore import QSize, Qt, QTimer, pyqtSignal
+from PyQt5.QtGui import QIcon, QMouseEvent
+
+# Other imports
 from PIL import Image
+
+# Project imports
 from songs.musicController import music_player
 from dragNDrop import DragDropWindow
 from ML_Folder.gesture_ml import GestureRecognizer
 from settings import SettingsPage
 from webCam import WebcamWindow
-import sys
-import subprocess
-import os
 
 class ClickableSlider(QSlider): 
     clicked = pyqtSignal(int) 
     def mousePressEvent(self, event: QMouseEvent): 
         if event.button() == Qt.LeftButton: 
-            val = self.minimum() + ((self.maximum() - self.minimum()) * event.x()) // self.width() 
-            self.setValue(val) 
+            val = self.minimum() + ((self.maximum() - self.minimum()) * 1.065 * event.x()) // self.width() 
+            self.setValue(int(val)) 
             event.accept() 
         super().mousePressEvent(event)
 
@@ -50,6 +54,7 @@ class MainPlayerPage(QWidget):
         self.REWIND_DOUBLE_CLICK_THRESHOLD = 1.0
         self.loop_check = False
         self.shuffle_check = False
+        self.full_playlist = []
         
         # Initialize music controller
         self.music_player = music_player
@@ -73,8 +78,8 @@ class MainPlayerPage(QWidget):
         return process is not None and process.poll() is None   
         
     def load_playlist(self):
-        # Load and display the playlist in the library
         playlist = self.music_player.get_playlist()
+        self.full_playlist = playlist[:]  # store full list
         self.update_playlist_ui(playlist)
 
         if playlist:
@@ -113,7 +118,7 @@ class MainPlayerPage(QWidget):
         # Add top container to main layout
         main_layout.addLayout(top_container)
 
-        # Add separator line - PURPLE
+        # Add separator line
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
@@ -162,20 +167,34 @@ class MainPlayerPage(QWidget):
                 border: 1px solid #6A0DAD;
                 background-color: transparent;
             }
+
             QScrollBar:vertical {
                 border: none;
-                background: #2a2a2a;
-                width: 10px;
-                margin: 0px;
-                border-radius: 5px;
+                background: transparent;
+                width: 12px;
+                margin: 4px 2px 4px 2px;
+                border-radius: 6px;
             }
+
             QScrollBar::handle:vertical {
                 background: #6A0DAD;
-                border-radius: 5px;
-                min-height: 20px;
+                border-radius: 6px;
+                min-height: 30px;
             }
+
             QScrollBar::handle:vertical:hover {
                 background: #8B5FBF;
+            }
+
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                height: 0px;
+                background: none;
+            }
+
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {
+                background: transparent;
             }
         """)
 
@@ -201,7 +220,7 @@ class MainPlayerPage(QWidget):
         left_container.addWidget(scroll_area)
         main_content_layout.addWidget(left_widget)
 
-        # Add vertical separator line - PURPLE
+        # Add vertical separator line
         left_line = QFrame()
         left_line.setFrameShape(QFrame.VLine)
         left_line.setFrameShadow(QFrame.Sunken)
@@ -216,7 +235,7 @@ class MainPlayerPage(QWidget):
         # Add the main content layout to the main layout
         main_layout.addLayout(main_content_layout, 1)
 
-        # Add horizontal separator line before bottom bar - PURPLE
+        # Add horizontal separator line before bottom bar
         bottom_separator = QFrame()
         bottom_separator.setFrameShape(QFrame.HLine)
         bottom_separator.setFrameShadow(QFrame.Sunken)
@@ -255,7 +274,7 @@ class MainPlayerPage(QWidget):
             }
             QPushButton:hover {
                 color: #000;
-                cursor: pointer;
+                button.setCursor(Qt.PointingHandCursor)
             }
         """
 
@@ -272,7 +291,18 @@ class MainPlayerPage(QWidget):
         self.folder.setFixedSize(50, 50)
         self.folder.setIconSize(QSize(30, 30))
         self.folder.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.folder.setStyleSheet(top_buttons_style)
+        self.folder.setStyleSheet("""
+            QPushButton {
+                background-color: transparent; 
+                color: #666;
+                border: none;
+                margin-right: 5px;
+            }
+            QPushButton:hover {
+                color: #000;
+                button.setCursor(Qt.PointingHandCursor)
+            }
+        """)
         
         self.hand.setFixedSize(50, 50)
         self.hand.setIconSize(QSize(30, 30))
@@ -286,9 +316,9 @@ class MainPlayerPage(QWidget):
 
         # Media Image
         self.mediaImage = QPushButton()
-        self.mediaImage.setIcon(QIcon("images/glasses.jpg"))
-        self.mediaImage.setFixedSize(412, 412)
-        self.mediaImage.setIconSize(QSize(300, 300))
+        self.mediaImage.setIcon(QIcon("images/error.png"))
+        self.mediaImage.setFixedSize(600, 412)
+        self.mediaImage.setIconSize(QSize(600, 412))
         self.mediaImage.setStyleSheet("background-color: transparent; border: none;")
 
         # Media Title and Artist 
@@ -300,13 +330,17 @@ class MainPlayerPage(QWidget):
 
         # Get image dimensions
         try:
-            with Image.open("images/glasses.jpg") as img:
+            with Image.open("images/error.png") as img:
                 width, height = img.size
-                if width <= height:
-                    size = int((412/width)*width)
+                # Calculate size to maintain aspect ratio and fit in 600x412
+                if width > height:
+                    new_width = 600
+                    new_height = int((600 / width) * height)
                 else:
-                    size = int((412/height)*width)
-                self.mediaImage.setIconSize(QSize(size, size))
+                    new_height = 412
+                    new_width = int((412 / height) * width)
+                
+                self.mediaImage.setIconSize(QSize(new_width, new_height))
         except Exception as e:
             print(f"Error loading image: {e}")
 
@@ -385,10 +419,10 @@ class MainPlayerPage(QWidget):
         controls_section.setAlignment(Qt.AlignCenter)
 
         # Create buttons with text symbols
-        self.shuffle = QPushButton("⇄")    # Shuffle symbol
-        self.rewind = QPushButton("«")     # Rewind symbol  
-        self.skip = QPushButton("»")       # Skip symbol
-        self.loop = QPushButton("↻")       # Loop symbol
+        self.shuffle = QPushButton("⇄")
+        self.rewind = QPushButton("«") 
+        self.skip = QPushButton("»")
+        self.loop = QPushButton("↻")
 
         # Style the control buttons
         control_buttons_style = """
@@ -468,15 +502,24 @@ class MainPlayerPage(QWidget):
 
         # Volume section
         volume_section = QHBoxLayout()
-        volume_section.setSpacing(15)
+        volume_section.setSpacing(10)
         volume_section.setAlignment(Qt.AlignCenter)
-        
-        # Add left stretch to push content to center
-        volume_section.addStretch(1)
 
         self.volume_icon = QPushButton("♪")  # Volume symbol
-        self.volume_icon.setFixedSize(20, 20)
-        self.volume_icon.setStyleSheet(control_buttons_style)
+        self.volume_icon.setFixedSize(24, 24)
+        self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: -5px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
 
         self.volume_bar = ClickableSlider(Qt.Horizontal)
         self.volume_bar.setRange(0, 100)
@@ -505,10 +548,17 @@ class MainPlayerPage(QWidget):
             }
         """)
 
-        volume_section.addWidget(self.volume_icon)
-        volume_section.addWidget(self.volume_bar)
-        
-        # Add right stretch to push content to center
+        # Create a horizontal layout for the volume controls without stretches
+        volume_controls = QHBoxLayout()
+        volume_controls.setSpacing(10)
+        volume_controls.setAlignment(Qt.AlignCenter)
+        volume_controls.addWidget(self.volume_icon)
+        volume_controls.addWidget(self.volume_bar)
+
+        # Add the centered volume controls to the main volume section
+        volume_section.addStretch(1)
+        volume_section.addLayout(volume_controls)
+        volume_section.setContentsMargins(0, 0, 10, 0)
         volume_section.addStretch(1)
 
         # Add all sections to middle container
@@ -571,11 +621,12 @@ class MainPlayerPage(QWidget):
                 widget.deleteLater()
 
         # Re-add songs BEFORE the spacer
-        for i, song in enumerate(playlist):
+        for song in playlist:
+            original_index = self.full_playlist.index(song)
             song_name = song.replace(".mp3", "")
 
             song_btn = QPushButton(f"▶ {song_name}")
-            song_btn.setMaximumWidth(328)
+            song_btn.setMaximumWidth(318)
             song_btn.setStyleSheet("""
                 QPushButton {
                     text-align: left;
@@ -593,7 +644,7 @@ class MainPlayerPage(QWidget):
             """)
 
             song_btn.clicked.connect(
-                lambda checked, idx=i: self.play_specific_song(idx)
+                lambda checked, idx=original_index: self.play_specific_song(idx)
             )
 
             # Insert ABOVE spacer
@@ -603,13 +654,14 @@ class MainPlayerPage(QWidget):
 
     def play_previous_song(self):
         if self.loop_check:
-            self.music_player.loop_song()
+            self.music_player.loop_song(self.is_playing)
         elif self.shuffle_check:  
-             self.music_player.shuffle_backward()
+             self.music_player.shuffle_backward(self.is_playing)
         else:
-            self.music_player.previous_song()
-        self.was_paused = False
-        self.start_playback()
+            self.music_player.previous_song(self.is_playing)
+        if self.is_playing:
+            self.was_paused = False
+            self.start_playback()
     
     active_style = """
         QPushButton {
@@ -666,15 +718,12 @@ class MainPlayerPage(QWidget):
         if self.webcamWindow is not None and self.webcamWindow.isVisible():
             self.webcamWindow.close()
             self.webcamWindow = None
-            print("Webcam page closed")
             return
 
         # Otherwise open webcam window
-        from webCam import WebcamWindow
-        self.webcamWindow = WebcamWindow(self)
+        self.webcamWindow = WebcamWindow(self, self.settings_page)
         self.webcamWindow.resize(800, 600)
         self.webcamWindow.show()
-        print("Webcam page opened")
 
     def setup_connections(self):
         # Connect signals
@@ -695,6 +744,23 @@ class MainPlayerPage(QWidget):
         self.volume_bar.clicked.connect(self.on_volume_bar_clicked)
         self.volume_bar.valueChanged.connect(self.on_volume_changed)
         self.volume_bar.valueChanged.connect(self.update_volume_display)
+        self.search_library.textChanged.connect(self.filter_playlist)
+
+    def filter_playlist(self, text):
+        text = text.lower().strip()
+
+        # If empty, show full playlist
+        if not text:
+            self.update_playlist_ui(self.full_playlist)
+            return
+
+        # Filter songs (ignore .mp3 + case insensitive)
+        filtered = [
+            song for song in self.full_playlist
+            if text in song.replace(".mp3", "").lower()
+        ]
+
+        self.update_playlist_ui(filtered)
 
     def update_album_art(self):
         # Update the album art display with the current song's artwork
@@ -708,10 +774,10 @@ class MainPlayerPage(QWidget):
                 # Adjust icon size to fit the container
                 with Image.open(album_art_path) as img:
                     width, height = img.size
-                    # Calculate size to maintain aspect ratio and fit in 412x412
+                    # Calculate size to maintain aspect ratio and fit in 600x412
                     if width > height:
-                        new_width = 412
-                        new_height = int((412 / width) * height)
+                        new_width = 600
+                        new_height = int((600 / width) * height)
                     else:
                         new_height = 412
                         new_width = int((412 / height) * width)
@@ -719,14 +785,14 @@ class MainPlayerPage(QWidget):
                     self.mediaImage.setIconSize(QSize(new_width, new_height))
             else:
                 # Use default image
-                self.mediaImage.setIcon(QIcon("images/glasses.jpg"))
-                self.mediaImage.setIconSize(QSize(300, 300))
+                self.mediaImage.setIcon(QIcon("images/error.png"))
+                self.mediaImage.setIconSize(QSize(600, 412))
                 
         except Exception as e:
             print(f"Error loading album art: {e}")
             # Fallback to default image
-            self.mediaImage.setIcon(QIcon("images/glasses.jpg"))
-            self.mediaImage.setIconSize(QSize(300, 300))
+            self.mediaImage.setIcon(QIcon("images/error.png"))
+            self.mediaImage.setIconSize(QSize(600, 412))
 
     def play_specific_song(self, song_index):
         # Play a specific song from the playlist
@@ -750,8 +816,8 @@ class MainPlayerPage(QWidget):
         if not self.music_player.is_playing and not self.music_player.was_paused:
             self.mediaTitle.setText("Press Play to Start")
             self.mediaArtist.setText("")
-            self.mediaImage.setIcon(QIcon("images/glasses.jpg"))
-            self.mediaImage.setIconSize(QSize(300, 300))
+            self.mediaImage.setIcon(QIcon("images/error.png"))
+            self.mediaImage.setIconSize(QSize(600, 412))
             self.progress_bar.setValue(0)
             self.current_time.setText("0:00")
             self.total_time.setText("0:00")
@@ -776,9 +842,11 @@ class MainPlayerPage(QWidget):
         self.update_time_display()
     
     def refresh_playlist(self, added_files=None):
-        # Refresh playlist after adding new songs
         self.music_player.load_playlist()
         playlist = self.music_player.get_playlist()
+        
+        self.full_playlist = playlist[:]  # keep the updated version
+        
         self.update_playlist_ui(playlist, added_files)
 
     def on_volume_bar_clicked(self, value):
@@ -795,19 +863,29 @@ class MainPlayerPage(QWidget):
         # Unmute and set to specified volume
         self.muted = 0
         self.volume_icon.setText("♪") 
+        self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: -5px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
         self.saved_volume = volume
 
     def close_settings_page(self):
         if self.settings_page:
-            self.settings_page.close()
-            self.settings_page = None
-            print("Settings page closed")
+            self.settings_page.hide()
     
     def close_webcam_page(self):
         if self.webcamWindow is not None:
             self.webcamWindow.close()
             self.webcamWindow = None
-            print("Webcam page closed")
 
     def open_front_page(self):
         self.close_settings_page()
@@ -819,7 +897,6 @@ class MainPlayerPage(QWidget):
         if self.drag_drop_window is not None and self.drag_drop_window.isVisible():
             self.drag_drop_window.close()
             self.drag_drop_window = None
-            print("Drag-and-drop window closed")
             return
 
         try:
@@ -828,7 +905,6 @@ class MainPlayerPage(QWidget):
                 on_files_added=self.refresh_playlist
             )
             self.drag_drop_window.show()
-            print("Drag-and-drop window opened")
         except Exception as e:
             print(f"Error opening drag-and-drop window: {e}")
 
@@ -843,7 +919,7 @@ class MainPlayerPage(QWidget):
 
     def open_settings_page(self):
         if self.settings_page is None:
-            self.settings_page = SettingsPage(None)
+            self.settings_page = SettingsPage(self)
             self.settings_page.setWindowFlag(Qt.Window, True)
 
         self.settings_page.show()
@@ -885,7 +961,7 @@ class MainPlayerPage(QWidget):
 
         if self.current_position > 0:
             self.current_position = 0
-            self.music_player.seek(0)
+            self.music_player.seek(0, self.is_playing)
             self.progress_bar.setValue(0)
             self.update_time_display()
 
@@ -895,10 +971,36 @@ class MainPlayerPage(QWidget):
             self.volume_bar.setValue(0)
             self.muted = 1
             self.volume_icon.setText("⊘")
+            self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+                margin-top: -3px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
         else:
             self.volume_bar.setValue(self.saved_volume)
             self.muted = 0
             self.volume_icon.setText("♪")
+            self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: -5px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
 
     def update_time_display(self):
         minutes = self.current_position // 60
@@ -933,7 +1035,7 @@ class MainPlayerPage(QWidget):
 
     def start_playback(self):
         # Start or resume music
-        # incase the fist gesture is already detected
+        # Incase the fist gesture is already detected
         if self.is_playing:
             return
 
@@ -993,11 +1095,11 @@ class MainPlayerPage(QWidget):
         # Play the next song in playlist
         self.was_paused = False
         if self.loop_check:
-            success, song_name = self.music_player.loop_song()
+            success, song_name = self.music_player.loop_song(self.is_playing)
         elif self.shuffle_check:
-            success, song_name = self.music_player.shuffle_forward()
+            success, song_name = self.music_player.shuffle_forward(self.is_playing)
         else:
-            success, song_name = self.music_player.next_song()
+            success, song_name = self.music_player.next_song(self.is_playing)
         if success:
             self.current_position = 0
             self.progress_bar.setValue(0)
@@ -1013,17 +1115,17 @@ class MainPlayerPage(QWidget):
         self.update_time_display()
 
     def on_slider_released(self):
-        self.was_paused = False
-        if not self.is_playing:
-            return
-
         self.current_position = self.progress_bar.value()
 
-        self.music_player.seek(self.current_position)
+        # Keep paused state correctly
+        self.music_player.seek(self.current_position, self.is_playing)
 
-        # Reset timer state so it doesn't jump back
+        if not self.is_playing:
+            self.was_paused = True
+
         self.timer.stop()
-        self.timer.start()
+        if self.is_playing:
+            self.timer.start()
 
         self.update_time_display()
 
@@ -1033,8 +1135,34 @@ class MainPlayerPage(QWidget):
 
         if volume == 0:
             self.volume_icon.setText("⊘")
+            self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 24px;
+                font-weight: bold;
+                margin-top: -3px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
         else:
             self.volume_icon.setText("♪")
+            self.volume_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                margin-top: -5px;
+            }
+            QPushButton:hover {
+                color: #8B5FBF;
+            }
+        """)
 
         self.music_player.set_volume(volume)
     

@@ -1,22 +1,10 @@
-right it of progress bar does not work
-
-
-fix the progress bar because that is broken
-
-when you rewind on the first song, it breaks
-
-
-need to make sure the dictionary is carrie dover
+add comments to section out your code so you know what goes where
+- reformat everything
 
 
 
-clicking settings again opens settings when its open
+problems to add to report
+- changing from volume to right thumb
+- changing gestures will change volume
 
-### NOTES
-# 
-# Settings opens when you close it via the button, fix that
-# test to see if its the same for the webcam
-# 
-# When seeking, does not update song and linking it is still janky
-# 
-# ###
+- didnt add more jestures

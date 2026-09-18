@@ -1,7 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout
 from PyQt5.QtCore import Qt
-import sys
-import subprocess
 
 class FrontPage(QWidget):
     def __init__(self, controller):
@@ -102,7 +100,7 @@ class FrontPage(QWidget):
 
     def open_main_page(self):
         # Switch to main player page using controller
-        self.controller.setCurrentIndex(3)
+        self.controller.setCurrentIndex(5)
 
     def open_tutorial_page(self):
         # Switch to tutorial page using controller

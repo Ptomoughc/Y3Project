@@ -3,19 +3,26 @@ import os
 import shutil
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon, QPixmap
 
 class DragDropWindow(QWidget):
     def __init__(self, target_folder, on_files_added=None):
         super().__init__()
         self.target_folder = target_folder
-        self.on_files_added = on_files_added  # callback to notify main window
+        self.on_files_added = on_files_added  # notify main window
         self.setStyleSheet("background-color: #2a2a2a")
 
         if not os.path.exists(self.target_folder):
             os.makedirs(self.target_folder)
 
         self.setWindowTitle("Add Music Files")
-        self.setGeometry(1367, 100, 400, 200)
+        pixmap = QPixmap("images/H.png").scaled(
+            16, 16,  
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+        self.setWindowIcon(QIcon(pixmap))
+        self.setGeometry(530, 420, 400, 200)
         self.setFixedSize(400, 200)
         self.setWindowModality(Qt.ApplicationModal)
         self.setAcceptDrops(True)

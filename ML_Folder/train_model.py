@@ -34,7 +34,7 @@ if extra:
 X = data.drop(columns=["label"])
 y = data["label"]
 
-# Show class balance
+# Show class counts
 print("\nSamples per class:")
 print(y.value_counts())
 

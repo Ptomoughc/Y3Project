@@ -1,179 +1,128 @@
 import os
 import pygame
-import threading
 import random
+import time
 from PIL import Image
 import io
-import mutagen
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 
 
 class MusicPlayer:
     def __init__(self):
-        pygame.mixer.init()
+        self.init_mixer_safe()
 
         self.current_song_index = 0
         self.playlist = []
         self.is_playing = False
         self.current_song_length = 0
         self.current_album_art = None
-        self.load_playlist()
-        self.paused_at = 0
+
+        # Track paused positions per song
+        self.paused_positions = {}
+
         self.was_paused = False
-
-        # --- Shuffle additions ---
         self.shuffle_enabled = False
-        self.shuffle_history = []  # stores played song indices in order
+        self.shuffle_history = []
 
+        self.load_playlist()
+
+    # mixer initializer
+    def init_mixer_safe(self):
+        try:
+            pygame.mixer.init()
+        except Exception:
+            print("Audio init failed, retrying...")
+            time.sleep(1)
+            try:
+                pygame.mixer.init()
+            except Exception as e:
+                print("Mixer failed completely:", e)
+
+    # Playlist
     def load_playlist(self):
-        # Load all MP3 files from the music directory
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
-
         self.playlist = [
-            file for file in os.listdir(self.base_dir)
-            if file.endswith('.mp3') and os.path.isfile(os.path.join(self.base_dir, file))
+            f for f in os.listdir(self.base_dir)
+            if f.endswith(".mp3") and os.path.isfile(os.path.join(self.base_dir, f))
         ]
-
         self.playlist.sort()
         return self.playlist
 
     def get_playlist(self):
         return self.playlist
 
-    def get_pause_position_seconds(self):
-        if self.was_paused and self.paused_at:
-            return int(self.paused_at / 1000)
-        return 0
-
+    # Shuffle
     def toggle_shuffle(self):
-        # Enable / Disable shuffle
         self.shuffle_enabled = not self.shuffle_enabled
-
-        # When turning shuffle on, start history with current song
         if self.shuffle_enabled:
             self.shuffle_history = [self.current_song_index]
-
         return self.shuffle_enabled
 
-    def shuffle_forward(self):
-        # Get next shuffled song
+    # Load + Seek songs
+    def _load_and_seek(self, index=None, position=None, play=False):
         if not self.playlist:
             return False, "No songs"
 
-        # If only one song, just replay
-        if len(self.playlist) == 1:
-            return self.play_song(0)
-
-        new_index = self.current_song_index
-        while new_index == self.current_song_index:
-            new_index = random.randint(0, len(self.playlist) - 1)
-
-        self.current_song_index = new_index
-        self.shuffle_history.append(new_index)
-
-        return self.play_song()
-
-    def shuffle_backward(self):
-        # Go back to previously shuffled song
-        if not self.shuffle_history:
-            return self.play_song()
-
-        if len(self.shuffle_history) > 1:
-            # Remove current
-            self.shuffle_history.pop()
-            # Previous becomes current
-            self.current_song_index = self.shuffle_history[-1]
-        else:
-            # Only one in history then restart current
-            self.current_song_index = self.shuffle_history[0]
-
-        return self.play_song()
-
-    def extract_album_art(self, file_path):
-        try:
-            audio = MP3(file_path, ID3=ID3)
-            if audio.tags is None:
-                return None
-
-            for tag in ['APIC:', 'covr', 'APIC']:
-                if tag in audio.tags:
-                    album_art = audio.tags[tag]
-                    if hasattr(album_art, 'data'):
-                        image_data = album_art.data
-                        image = Image.open(io.BytesIO(image_data))
-                        return image
-
-            try:
-                tags = ID3(file_path)
-                for tag in tags.values():
-                    if isinstance(tag, APIC):
-                        image_data = tag.data
-                        image = Image.open(io.BytesIO(image_data))
-                        return image
-            except:
-                pass
-
-        except Exception as e:
-            print(f"Error extracting album art from {file_path}: {e}")
-
-        return None
-
-    def get_album_art_path(self, file_path):
-        image = self.extract_album_art(file_path)
-        if image:
-            try:
-                temp_path = "temp_album_art.jpg"
-                image.save(temp_path, "JPEG")
-                self.current_album_art = temp_path
-                return temp_path
-            except Exception as e:
-                print(f"Error saving album art: {e}")
-
-        self.current_album_art = "images/glasses.jpg"
-        return "images/glasses.jpg"
-
-    def play_song(self, song_index=None):
-        if not self.playlist:
-            return False, "No songs in playlist"
-
-        # If UI manually selected a song then reset shuffle history
-        if song_index is not None:
-            self.current_song_index = song_index
-            if self.shuffle_enabled:
-                self.shuffle_history = [song_index]
-
-        if self.current_song_index >= len(self.playlist):
-            self.current_song_index = 0
-
-        try:
-            current_song = self.playlist[self.current_song_index]
-            song_path = os.path.join(self.base_dir, current_song)
-
-            pygame.mixer.music.load(song_path)
-
-            if self.was_paused and self.paused_at > 0:
-                pygame.mixer.music.play(start=self.paused_at / 1000.0)
+        # Song switching
+        if index is not None:
+            if index != self.current_song_index:
+                # Reset paused position for the new song
+                self.current_song_index = index
+                self.paused_positions[self.current_song_index] = 0.0
             else:
-                pygame.mixer.music.play()
+                self.current_song_index = index
 
-            self.is_playing = True
-            self.was_paused = False
+            if self.shuffle_enabled:
+                self.shuffle_history = [self.current_song_index]
 
-            sound = pygame.mixer.Sound(song_path)
+        # Ensure position is correct
+        if position is None:
+            position = self.paused_positions.get(self.current_song_index, 0.0)
+
+        song = self.playlist[self.current_song_index]
+        path = os.path.join(self.base_dir, song)
+
+        try:
+            current_vol = pygame.mixer.music.get_volume()
+
+            pygame.mixer.music.stop()
+            pygame.mixer.music.load(path)
+
+            if play:
+                pygame.mixer.music.play(start=float(position))
+                self.is_playing = True
+                self.was_paused = False
+            else:
+                pygame.mixer.music.set_volume(0)
+                pygame.mixer.music.play(start=float(position))
+                pygame.mixer.music.pause()
+                pygame.mixer.music.set_volume(current_vol)
+
+                self.was_paused = True
+                self.is_playing = False
+
+            # Store current paused position
+            self.paused_positions[self.current_song_index] = float(position)
+
+            # length of song
+            sound = pygame.mixer.Sound(path)
             self.current_song_length = int(sound.get_length())
 
-            self.get_album_art_path(song_path)
+            self.get_album_art_path(path)
 
-            return True, current_song
+            return True, song
 
         except Exception as e:
-            print(f"Error playing song: {e}")
             return False, str(e)
+
+    # Controls
+    def play_song(self, song_index=None):
+        return self._load_and_seek(index=song_index, play=True)
 
     def pause_song(self):
         if self.is_playing:
-            self.paused_at = pygame.mixer.music.get_pos()
+            self.paused_positions[self.current_song_index] = pygame.mixer.music.get_pos() / 1000.0
             pygame.mixer.music.pause()
             self.is_playing = False
             self.was_paused = True
@@ -185,66 +134,89 @@ class MusicPlayer:
     def stop_song(self):
         pygame.mixer.music.stop()
         self.is_playing = False
-        self.paused_at = 0
         self.was_paused = False
+        self.paused_positions[self.current_song_index] = 0.0
 
-    def next_song(self):
+    # Navigation
+    def next_song(self, is_playing):
         self.current_song_index = (self.current_song_index + 1) % len(self.playlist)
-        return self.play_song()
+        return self._load_and_seek(position=0.0, play=is_playing)
 
-    def previous_song(self):
+    def previous_song(self, is_playing):
         self.current_song_index = (self.current_song_index - 1) % len(self.playlist)
-        return self.play_song()
+        return self._load_and_seek(position=0.0, play=is_playing)
 
-    def loop_song(self):
-        return self.play_song()
+    def loop_song(self, is_playing):
+        return self._load_and_seek(position=0.0, play=is_playing)
 
+    # Shuffle navigation
+    def shuffle_forward(self, is_playing):
+        if len(self.playlist) <= 1:
+            return self._load_and_seek(position=0.0, play=is_playing)
+
+        new_index = self.current_song_index
+        while new_index == self.current_song_index:
+            new_index = random.randint(0, len(self.playlist) - 1)
+
+        self.current_song_index = new_index
+        self.shuffle_history.append(new_index)
+
+        return self._load_and_seek(position=0.0, play=is_playing)
+
+    def shuffle_backward(self, is_playing):
+        if len(self.shuffle_history) > 1:
+            self.shuffle_history.pop()
+            self.current_song_index = self.shuffle_history[-1]
+
+        return self._load_and_seek(position=0.0, play=is_playing)
+
+    # Seek
+    def seek(self, position_seconds, is_playing):
+        return self._load_and_seek(position=position_seconds, play=is_playing)
+
+    # Volume
     def set_volume(self, volume):
         pygame.mixer.music.set_volume(volume / 100.0)
 
-    def seek(self, position_seconds):
-        if not self.playlist:
-            return
+    # Album Art
+    def extract_album_art(self, file_path):
+        try:
+            audio = MP3(file_path, ID3=ID3)
+            if audio.tags:
+                for tag in audio.tags.values():
+                    if isinstance(tag, APIC):
+                        return Image.open(io.BytesIO(tag.data))
+        except:
+            pass
+        return None
 
-        current_song = self.playlist[self.current_song_index]
-        song_path = os.path.join(self.base_dir, current_song)
+    def get_album_art_path(self, file_path):
+        image = self.extract_album_art(file_path)
+        if image:
+            temp_path = "temp_album_art.jpg"
+            image.save(temp_path, "JPEG")
+            self.current_album_art = temp_path
+            return temp_path
 
-        pygame.mixer.music.stop()
-        pygame.mixer.music.load(song_path)
-        pygame.mixer.music.play(start=float(position_seconds))
+        self.current_album_art = "images/error.png"
+        return "images/error.png"
 
-        self.is_playing = True
-        self.paused_at = None
-
+    # Song Info
     def get_current_song_info(self):
-        if not self.playlist or self.current_song_index >= len(self.playlist):
+        if not self.playlist:
             return "No Song", "Unknown Artist"
 
-        song_name = self.playlist[self.current_song_index]
+        song = self.playlist[self.current_song_index]
+        name = song.replace(".mp3", "")
 
-        try:
-            audio = MP3(song_name, ID3=ID3)
-            title = ""
-            artist = ""
-            
-            base_name = song_name.replace('.mp3', '')
-            if ' - ' in base_name:
-                title, artist = base_name.split(' - ', 1)
-            else:
-                title = base_name
-                artist = "Unknown Artist"
+        if " - " in name:
+            title, artist = name.split(" - ", 1)
+        else:
+            title = name
+            artist = "Unknown Artist"
 
-            return title, artist
-
-        except Exception as e:
-            print(f"Error reading metadata: {e}")
-            base_name = song_name.replace('.mp3', '')
-            if ' - ' in base_name:
-                artist, title = base_name.split(' - ', 1)
-                return title, artist
-            else:
-                return base_name, "Unknown Artist"
+        return title, artist
 
 
-# Global instance
+# global instance
 music_player = MusicPlayer()
